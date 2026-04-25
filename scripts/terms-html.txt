@@ -1,0 +1,39 @@
+<div class="space-y-4 text-gray-800 leading-relaxed text-sm md:text-base">
+<p class="text-lg font-semibold text-gray-900">Fitwinz Terms &amp; Conditions</p>
+<p>Welcome to Fitwinz. These terms outline how you purchase and use our products. Please read them carefully before placing an order.</p>
+<p>By using our website, you agree to these terms.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">1. Who We Are</h2>
+<p>Fitwinz is a sportswear brand founded with a vision to create performance-driven clothing using healthier, more natural materials.</p>
+<p><strong>Contact us anytime at:</strong><br/>Email: <a class="underline" href="mailto:support@fitwinz.com">support@fitwinz.com</a><br/>Or through our website contact section.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">2. Placing an Order</h2>
+<p>When you place an order, you are making an offer to purchase a product. After ordering, you will receive a confirmation email. Your order is officially accepted once we dispatch your items. Please double-check your size, items, and delivery address before confirming.</p>
+<p>You must be at least 18 years old, or have permission from a parent/guardian.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">3. Product Availability &amp; Order Cancellation</h2>
+<p>We may cancel your order if a product is out of stock, payment cannot be verified, there is a pricing or listing error, or suspicious or bulk-buy activity is detected. If this happens, you will not be charged.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">4. Our Products</h2>
+<p>Fitwinz designs performance clothing and gym accessories. We focus on materials such as wool, linen, and organic cotton.</p>
+<p><strong>Note:</strong> Product images are for illustration. Colors may vary slightly depending on your device.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">5. Delivery</h2>
+<p>Delivery times depend on your location and selected shipping method. Delays may happen due to external factors (weather, logistics, etc.). Risk transfers to you once the product is handed to the carrier. If you miss delivery, the courier will provide next steps.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">6. Returns &amp; Refunds</h2>
+<p>If the product is faulty, you are eligible for a replacement or full refund. If you change your mind, you have 30 days to return items; items must be unused, with tags and original packaging.</p>
+<p>Non-returnable items include opened socks (hygiene reasons), shakers &amp; bottles (health safety), and personalized/custom products.</p>
+<p>Refunds are processed using your original payment method within 14 days after receiving returned items.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">7. Pricing &amp; Payments</h2>
+<p>Prices are displayed before checkout. Taxes may apply depending on your location. Accepted payments include Visa, Mastercard, PayPal, and Apple Pay. We may correct pricing errors and cancel affected orders if necessary.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">8. Discounts &amp; Offers</h2>
+<p>Discount codes are time-limited. Only one code per order. Cannot be used on gift cards or combined offers. Refunds reflect the discounted price paid.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">9. Your Rights</h2>
+<p>You may cancel your order if we change product details, there is a pricing error, or delivery is significantly delayed.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">10. Our Responsibility</h2>
+<p>We are responsible for delivering products as described and ensuring reasonable quality. We are not responsible for indirect losses or business-related losses. Nothing in these terms removes your legal rights.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">11. Personal Data</h2>
+<p>We only use your data according to our Privacy Policy. Your information is handled securely and never sold.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">12. General Terms</h2>
+<p>These terms may be updated at any time. Continued use of the website means acceptance of updates. If one part of these terms is invalid, the rest still applies.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">13. Fitwinz Philosophy</h2>
+<p>Fitwinz is built on a simple idea: performance should not come at the cost of comfort or well-being. We create sportswear that feels better on the skin, supports movement naturally, and aligns with a healthier lifestyle.</p>
+<p>Fitwinz is more than clothing — it’s how you train, move, and live.</p>
+<h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">14. Legal</h2>
+<p>These terms are governed by applicable laws in your region.</p>
+</div>
