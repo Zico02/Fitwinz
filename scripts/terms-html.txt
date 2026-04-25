@@ -4,7 +4,7 @@
 <p>By using our website, you agree to these terms.</p>
 <h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">1. Who We Are</h2>
 <p>Fitwinz is a sportswear brand founded with a vision to create performance-driven clothing using healthier, more natural materials.</p>
-<p><strong>Contact us anytime at:</strong><br/>Email: <a class="underline" href="mailto:support@fitwinz.com">support@fitwinz.com</a><br/>Or through our website contact section.</p>
+<p><strong>Contact us anytime at:</strong><br/>Email: <a class="underline" href="mailto:fitwinz2@gmail.com">fitwinz2@gmail.com</a><br/>Or through our website contact section.</p>
 <h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">2. Placing an Order</h2>
 <p>When you place an order, you are making an offer to purchase a product. After ordering, you will receive a confirmation email. Your order is officially accepted once we dispatch your items. Please double-check your size, items, and delivery address before confirming.</p>
 <p>You must be at least 18 years old, or have permission from a parent/guardian.</p>
