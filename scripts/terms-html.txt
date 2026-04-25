@@ -1,4 +1,4 @@
-<div class="space-y-4 text-gray-800 leading-relaxed text-sm md:text-base">
+﻿<div class="space-y-4 text-gray-800 leading-relaxed text-sm md:text-base">
 <p class="text-lg font-semibold text-gray-900">Fitwinz Terms &amp; Conditions</p>
 <p>Welcome to Fitwinz. These terms outline how you purchase and use our products. Please read them carefully before placing an order.</p>
 <p>By using our website, you agree to these terms.</p>
@@ -33,7 +33,7 @@
 <p>These terms may be updated at any time. Continued use of the website means acceptance of updates. If one part of these terms is invalid, the rest still applies.</p>
 <h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">13. Fitwinz Philosophy</h2>
 <p>Fitwinz is built on a simple idea: performance should not come at the cost of comfort or well-being. We create sportswear that feels better on the skin, supports movement naturally, and aligns with a healthier lifestyle.</p>
-<p>Fitwinz is more than clothing — it’s how you train, move, and live.</p>
+<p>Fitwinz is more than clothing &mdash; it&rsquo;s how you train, move, and live.</p>
 <h2 class="text-xs font-bold tracking-widest text-gray-900 uppercase mt-10">14. Legal</h2>
 <p>These terms are governed by applicable laws in your region.</p>
 </div>
