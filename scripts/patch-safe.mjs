@@ -46,7 +46,7 @@ rep(
 
 rep(
   `children:"TIME TO          DRESS HEALTHY "})`,
-  `children:c.jsxs(b.Fragment,{children:[c.jsx("span",{className:"block",children:"TIME TO"}),c.jsx("span",{className:"block",children:"DRESS HEALTHY,"})]})})`,
+  `children:c.jsxs(b.Fragment,{children:[c.jsx("span",{className:"block",children:"TIME TO"}),c.jsx("span",{className:"block",children:"DRESS HEALTHY"})]})})`,
   "hero h1",
 );
 
