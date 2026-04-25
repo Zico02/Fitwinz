@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "node scripts/copy-public-to-dist.mjs",
     "preview": "vite preview"
   },
   "keywords": [],
