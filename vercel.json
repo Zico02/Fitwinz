@@ -1,4 +1,4 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "echo \"Using existing dist\"",
   "outputDirectory": "dist"
 }
