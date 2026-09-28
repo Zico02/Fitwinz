@@ -256,6 +256,18 @@ await test("shipment tracking link must be http(s)", async () => {
   );
 });
 
+await test("cancelled email: new kind, sent at most once, reason limited to 500 characters", async () => {
+  const claim = () =>
+    db.query("insert into public.order_emails (order_id, kind, status) values ($1, 'cancelled', 'sending')", [firstOrder.order_id]);
+  await claim();
+  await expectError(claim(), "duplicate key");
+  await db.query("update public.orders set cancellation_reason = 'Out of stock' where id = $1", [firstOrder.order_id]);
+  await expectError(
+    db.query("update public.orders set cancellation_reason = $2 where id = $1", [firstOrder.order_id, "x".repeat(501)]),
+    "check constraint",
+  );
+});
+
 await test("stock can never go negative", async () => {
   await expectError(db.query("update public.product_variants set stock = -1 where sku = 'OFIB-M'"), "check constraint");
 });

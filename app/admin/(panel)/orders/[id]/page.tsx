@@ -2,9 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ActionForm, { SubmitButton } from "@/components/admin/ActionForm";
+import OrderStatusFields from "@/components/admin/OrderStatusFields";
 import { retryOrderEmail, updateOrder } from "@/app/admin/actions";
 import { requireAdmin } from "@/lib/admin/auth";
-import { dateTime, ORDER_STATUSES, STATUS_STYLES, type OrderStatus } from "@/lib/admin/labels";
+import { dateTime, STATUS_STYLES, type OrderStatus } from "@/lib/admin/labels";
 import { formatPrice } from "@/lib/pricing";
 import { getStorefront } from "@/lib/store";
 
@@ -14,6 +15,7 @@ const EMAIL_KINDS = [
   { kind: "confirmation", label: "Order confirmation (customer)", pending: "Not sent" },
   { kind: "admin_notification", label: "New order notification (you)", pending: "Not sent" },
   { kind: "shipped", label: "On its way (customer)", pending: "Sent when shipped" },
+  { kind: "cancelled", label: "Order cancelled (customer)", pending: "Only if you choose to" },
 ] as const;
 
 type EmailLog = { kind: string; status: string; recipient: string | null; error: string | null; updated_at: string };
@@ -150,13 +152,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <h2 className="font-semibold mb-3">Status &amp; shipping</h2>
             <ActionForm action={updateOrder} className="space-y-3">
               <input type="hidden" name="orderId" value={order.id} />
-              <select name="status" defaultValue={status} className={input} disabled={order.restocked} aria-label="Status">
-                {ORDER_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+              <OrderStatusFields
+                current={status}
+                disabled={order.restocked}
+                hasCustomerEmail={Boolean(order.email)}
+                cancelledEmailSent={latestEmail.get("cancelled")?.status === "sent"}
+              />
               <input name="carrier" defaultValue={shipment?.carrier ?? ""} placeholder="Carrier (e.g. Amana, CTM)" className={input} />
               <input name="tracking" defaultValue={shipment?.tracking_number ?? ""} placeholder="Tracking number" className={input} />
               <input
@@ -168,6 +169,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               />
               {shipment?.shipped_at && <p className="text-xs text-gray-500">Shipped {dateTime(shipment.shipped_at)}</p>}
               {shipment?.delivered_at && <p className="text-xs text-gray-500">Delivered {dateTime(shipment.delivered_at)}</p>}
+              {order.cancellation_reason && (
+                <p className="text-xs text-gray-500">Cancellation reason: {order.cancellation_reason}</p>
+              )}
               {order.restocked ? (
                 <p className="text-sm text-gray-500">This order is closed; its items were put back in stock.</p>
               ) : (

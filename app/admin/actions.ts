@@ -110,6 +110,26 @@ export async function updateOrder(_prev: ActionState, formData: FormData): Promi
         updateTag(CATALOG_TAG);
         messages.push("The items were put back in stock.");
       }
+      if (status.data === "cancelled") {
+        const reason = String(formData.get("cancellationReason") ?? "").trim().slice(0, 500) || null;
+        if (reason) {
+          const { error: reasonError } = await supabase.from("orders").update({ cancellation_reason: reason }).eq("id", orderId.data);
+          if (reasonError) console.warn(`[admin] could not save cancellation reason: ${reasonError.message}`);
+        }
+        // Off by default so test orders stay silent; sent at most once per order.
+        if (formData.get("notifyCancelled") === "on") {
+          const result = await sendOrderEmail(orderId.data, "cancelled");
+          messages.push(
+            result === "sent"
+              ? "The customer was emailed about the cancellation."
+              : result === "already-sent"
+                ? "The cancellation email was already sent earlier."
+                : result === "skipped"
+                  ? "No cancellation email: the customer gave no email address."
+                  : "The cancellation email could not be sent (see Emails below).",
+          );
+        }
+      }
       if (status.data === "shipped") {
         // Sent at most once per order (enforced in the database); never blocks this save.
         const result = await sendOrderEmail(orderId.data, "shipped");
@@ -134,7 +154,7 @@ export async function updateOrder(_prev: ActionState, formData: FormData): Promi
 export async function retryOrderEmail(formData: FormData) {
   await requireAdmin();
   const orderId = z.uuid().parse(formData.get("orderId"));
-  const kind = z.enum(["confirmation", "admin_notification", "shipped"]).parse(formData.get("kind"));
+  const kind = z.enum(["confirmation", "admin_notification", "shipped", "cancelled"]).parse(formData.get("kind"));
   await sendOrderEmail(orderId, kind);
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);

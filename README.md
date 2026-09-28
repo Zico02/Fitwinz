@@ -49,7 +49,8 @@ Without `.env.local` the store still runs in **preview mode**: it shows the cata
   secret key. It re-checks prices and stock against the database, applies the discount and
   shipping rule, decrements stock and writes the order in one transaction.
 - **Emails** (Resend, `lib/emails/`): order confirmation (customer), "on its way" (customer, sent
-  once when an order is set to Shipped) and a new-order notification (`ORDER_NOTIFICATION_EMAIL`).
+  once when an order is set to Shipped), an optional "order cancelled" email (only if you tick
+  "Email the customer" when cancelling) and a new-order notification (`ORDER_NOTIFICATION_EMAIL`).
   Table-based HTML with inline styles plus a plain-text version. Each send is recorded in
   `order_emails` (at most once per kind per order); failures show as "email not sent" in the admin
   with a Retry button, and never block or lose an order. Logo files live in `public/email/`;
@@ -70,7 +71,7 @@ Without `.env.local` the store still runs in **preview mode**: it shows the cata
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript only |
 | `npm run images:optimize -- <folder> [files...]` | Convert JPG/PNG photos to WebP in `public/images` |
-| `npm run email:previews` | Render the three order emails to `email-previews/` (open `index.html`) |
+| `npm run email:previews` | Render the order emails to `email-previews/` (open `index.html`) |
 | `npm run test:db` | Run the database tests (schema, RLS, orders, stock) in an in-memory Postgres |
 | `npm run db:seed` | Seed Supabase from `lib/catalog.ts` |
 | `npm run admin:create -- email` | Create an admin, or reset an admin's password (hidden prompt) |

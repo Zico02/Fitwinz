@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   renderAdminNotification,
+  renderOrderCancelled,
   renderOrderConfirmation,
   renderOrderShipped,
   type OrderEmailData,
@@ -43,6 +44,7 @@ const sample: OrderEmailData = {
   carrier: "Amana",
   trackingNumber: "RR123456789MA",
   trackingUrl: "https://www.poste.ma/fr/suivi-envoi",
+  cancellationReason: "The Ice Blue Oversized Fit in size M is no longer available. We're sorry for the inconvenience.",
 };
 
 const outDir = path.join(process.cwd(), "email-previews");
@@ -52,6 +54,7 @@ const emails = [
   ["1-order-confirmation", renderOrderConfirmation(sample, urls)],
   ["2-order-shipped", renderOrderShipped(sample, urls)],
   ["3-new-order-notification", renderAdminNotification(sample, urls)],
+  ["4-order-cancelled", renderOrderCancelled(sample, urls)],
 ] as const;
 
 const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
