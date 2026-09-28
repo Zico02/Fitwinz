@@ -5,18 +5,21 @@ import Link from "next/link";
 import { Heart, ShoppingBag, X } from "lucide-react";
 import Logo from "@/components/Logo";
 import { useCart } from "@/components/CartContext";
-import { products } from "@/lib/catalog";
-import { formatPrice } from "@/lib/format";
+import { useStore } from "@/components/StoreContext";
 
 export default function WishlistView() {
   const { wishlistIds, toggleWishlist, addToCart, cartCount } = useCart();
+  const { products, formatPrice } = useStore();
   const items = products.filter((p) => wishlistIds.includes(p.id));
+  // Same default as before (third size, usually M), falling back to any size in stock.
+  const defaultSize = (p: (typeof products)[number]) =>
+    [p.sizes[Math.min(2, p.sizes.length - 1)], ...p.sizes].find((s) => s && (p.stock[s] ?? 0) > 0);
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <header className="h-16 flex items-center justify-between px-6 border-b border-gray-100">
         <Link href="/" className="absolute left-1/2 -translate-x-1/2">
-          <Logo priority className="h-16 w-auto object-contain bg-transparent" />
+          <Logo eager className="h-16 w-auto object-contain bg-transparent" />
         </Link>
         <div className="flex items-center gap-4 ml-auto">
           <Link href="/wishlist" className="p-2" aria-label="Wishlist">
@@ -72,15 +75,23 @@ export default function WishlistView() {
                   >
                     <X className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => addToCart(item.id, item.sizes[Math.min(2, item.sizes.length - 1)])}
-                    className="absolute bottom-0 left-0 right-0 bg-black text-white py-3 text-sm font-semibold translate-y-full group-hover:translate-y-0 transition-transform"
-                  >
-                    ADD TO BAG
-                  </button>
+                  {defaultSize(item) ? (
+                    <button
+                      onClick={() => addToCart(item.id, defaultSize(item)!)}
+                      className="absolute bottom-0 left-0 right-0 bg-black text-white py-3 text-sm font-semibold translate-y-full group-hover:translate-y-0 transition-transform"
+                    >
+                      ADD TO BAG
+                    </button>
+                  ) : (
+                    <span className="absolute bottom-0 left-0 right-0 bg-white/90 text-gray-500 py-3 text-sm font-semibold text-center">
+                      SOLD OUT
+                    </span>
+                  )}
                 </div>
                 <div className="space-y-1">
-                  <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                  <h3 className="font-semibold text-gray-900">
+                    <Link href={`/products/${item.id}`}>{item.name}</Link>
+                  </h3>
                   <p className="text-sm text-gray-500">{item.fit}</p>
                   <p className="text-sm text-gray-500">{item.color}</p>
                   <p className="font-semibold text-gray-900">{formatPrice(item.price)}</p>

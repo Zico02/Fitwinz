@@ -25,7 +25,8 @@ export default function HeroSection({ compactTop = false }: { compactTop?: boole
           src="/images/hero-men.webp"
           alt="Fitwinz Men's Collection"
           fill
-          priority
+          loading="eager"
+          fetchPriority="high"
           sizes="100vw"
           className="object-cover"
         />

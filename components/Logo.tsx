@@ -4,11 +4,12 @@ import Image from "next/image";
 export default function Logo({
   className,
   style,
-  priority,
+  eager,
 }: {
   className?: string;
   style?: React.CSSProperties;
-  priority?: boolean;
+  /** Above-the-fold logo: load immediately instead of lazily. */
+  eager?: boolean;
 }) {
   return (
     <Image
@@ -17,7 +18,7 @@ export default function Logo({
       width={1536}
       height={1024}
       sizes="240px"
-      priority={priority}
+      loading={eager ? "eager" : undefined}
       className={className}
       style={style}
     />

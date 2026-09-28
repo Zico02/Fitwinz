@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useReveal } from "@/components/useReveal";
 
@@ -10,14 +9,6 @@ const footerLinks = {
   pages: ["Fitwinz Central", "Fitwinz Loyalty", "Careers", "About Us", "Student Discount", "Training App", "Factory List"],
   more: ["Blog", "Student Discount", "Email Sign Up"],
 };
-
-const paymentMethods = [
-  { name: "Visa", src: "/images/pay-visa.webp" },
-  { name: "Mastercard", src: "/images/pay-mastercard.webp" },
-  { name: "Amex", src: "/images/pay-amex.webp" },
-  { name: "PayPal", src: "/images/pay-paypal.webp" },
-  { name: "Apple Pay", src: "/images/pay-apple.webp" },
-];
 
 const socialLinks = [
   {
@@ -107,19 +98,7 @@ export default function Footer() {
       <div className="border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-            <div className="flex gap-3">
-              {paymentMethods.map((method) => (
-                <div key={method.name} className="h-8 flex items-center">
-                  <Image
-                    src={method.src}
-                    alt={method.name}
-                    width={100}
-                    height={60}
-                    className="h-8 w-auto max-w-[52px] object-contain"
-                  />
-                </div>
-              ))}
-            </div>
+            <p className="text-sm text-gray-400">Cash on delivery across Morocco</p>
             <div className="text-sm text-gray-400 text-center space-y-1">
               <p>© 2026 Fitwinz | Founded by AHAJI Zakariae |</p>
               <p>| All Rights Reserved | Time to Dress Healthy |</p>

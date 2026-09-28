@@ -8,24 +8,51 @@ Built with **Next.js (App Router) + TypeScript + Tailwind CSS**.
 
 ## Requirements
 
-- Node.js 20 or newer (tested with Node 22)
+- Node.js 22.18 or newer (the seed/admin scripts run TypeScript directly)
 - npm
+- A Supabase project and a Resend account **dedicated to Fitwinz**
 
 ## Run locally
 
 ```bash
 npm install
+cp .env.example .env.local   # then fill in the values (see below)
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000 (store) and http://localhost:3000/admin (admin).
 
-To test a production build locally:
+Without `.env.local` the store still runs in **preview mode**: it shows the catalog from
+`lib/catalog.ts`, but ordering and the admin are disabled.
 
-```bash
-npm run build
-npm start
-```
+## Backend setup (once)
+
+1. **Create the database schema.** In Supabase → SQL Editor → New query, paste the whole
+   content of `supabase/migrations/20260928120000_init_store.sql` and run it.
+   (Or with the Supabase CLI: `npx supabase link --project-ref <ref>` then `npx supabase db push`.)
+2. **Fill `.env.local`** (see `.env.example` for where each value comes from).
+3. **Seed the catalog:** `npm run db:seed` (products from `lib/catalog.ts`, 10 units per size).
+   Safe to re-run: it never overwrites existing products, prices or stock.
+4. **Create your admin account:** `npm run admin:create -- you@example.com "a-long-password"`
+5. Restart `npm run dev`.
+
+### How it works
+
+- **Catalog & settings** are read from Supabase (cached, refreshed immediately after admin edits
+  and orders). Currency, delivery fee and free-delivery threshold live in `store_settings` and are
+  edited in Admin → Settings.
+- **One shipping rule** (`lib/pricing.ts`, mirrored by `shipping_for()` in SQL): free when the
+  subtotal before discounts reaches the threshold, otherwise the flat fee. Used by the
+  announcement bar, bag, checkout and the order itself.
+- **Orders** are created by the `place_order()` database function, called server-side with the
+  secret key. It re-checks prices and stock against the database, applies the discount and
+  shipping rule, decrements stock and writes the order in one transaction.
+- **Emails** (Resend): confirmation to the customer (if they gave an email) and a notification to
+  `ORDER_NOTIFICATION_EMAIL`, sent after the order is saved. An email failure never loses an order.
+- **Admin** (`/admin`): orders and status changes (cancelled/returned puts stock back once),
+  products, sizes/stock, photos (Supabase Storage), discount codes, settings.
+- **Security**: Row Level Security on every table. Visitors can only read the public catalog;
+  orders/customers are readable only by admins. The secret key is only used on the server.
 
 ## Scripts
 
@@ -37,13 +64,20 @@ npm start
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript only |
 | `npm run images:optimize -- <folder> [files...]` | Convert JPG/PNG photos to WebP in `public/images` |
+| `npm run test:db` | Run the database tests (schema, RLS, orders, stock) in an in-memory Postgres |
+| `npm run db:seed` | Seed Supabase from `lib/catalog.ts` |
+| `npm run admin:create -- email "password"` | Create or promote an admin account |
 
 ## Project layout
 
 ```
 app/                  Routes (App Router)
   page.tsx            Home page
-  checkout/ login/ signup/ wishlist/ terms/
+  checkout/           Checkout page + Server Actions (placeOrder, previewDiscount)
+  order/[token]/      Order confirmation (private link)
+  products/[slug]/    Product pages (server-rendered)
+  admin/              Admin dashboard (protected)
+  login/ signup/ wishlist/ terms/
   robots.ts sitemap.ts   Generated robots.txt and sitemap.xml
   icon.png apple-icon.png favicon.ico
 components/
@@ -53,8 +87,15 @@ components/
   sections/           Home-page sections (hero, carousels, trending, training...)
   auth/ checkout/     Page-specific components
 lib/
-  catalog.ts          The single product/catalog data source
-  format.ts           Price formatting (currency lives here)
+  catalog.ts          Seed data for the catalog (the live catalog is in Supabase)
+  store.ts            Loads catalog + settings from Supabase (cached)
+  pricing.ts          Shipping rule, discounts, price formatting
+  email.ts            Order emails via Resend
+  supabase/           Supabase clients (public, session, server-only secret)
+supabase/
+  migrations/         Database schema (SQL)
+  tests/              Database tests (PGlite)
+proxy.ts              Refreshes the admin session (Next 16 "proxy", formerly middleware)
 public/images/        Optimized WebP images
 scripts/
   optimize-images.mjs Image conversion script
@@ -62,8 +103,8 @@ scripts/
 
 ## Adding or changing products
 
-Every product lives in `lib/catalog.ts`. Each product has a unique `id` (a URL-safe slug).
-The cart keys on `id + size`, so ids must never be reused.
+Use Admin → Products. Each product has a unique URL slug; the cart keys on `slug + size`.
+`lib/catalog.ts` is only the initial seed.
 
 ## Images
 
@@ -84,6 +125,7 @@ All routes (`/checkout`, `/terms`, etc.) work on refresh.
 
 ## Roadmap
 
-- **Step 2:** Supabase backend (products, stock, orders), cash-on-delivery checkout for Morocco,
-  order emails via Resend, admin dashboard.
+- **Step 2 (done):** Supabase backend, cash-on-delivery checkout, order emails, admin dashboard.
+- **Before launch:** verify fitwinz.ma in Resend and set `EMAIL_FROM=Fitwinz <orders@fitwinz.ma>`;
+  add the same env variables in Vercel; set real stock in the admin.
 - **Step 3:** Legal pages, footer link cleanup, social links, Open Graph tags.

@@ -1,18 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-
-const announcements = ["Free Shipping on Orders $50+", "New Drops Weekly", "Student Discount 15%"];
+import { useStore } from "@/components/StoreContext";
 
 export default function AnnouncementBar({ scrollHide = false }: { scrollHide?: boolean }) {
+  const { settings, formatPrice } = useStore();
+  // The free-shipping message follows the store settings (same rule as bag and checkout).
+  const announcements = useMemo(
+    () => [
+      ...(settings.freeShippingThreshold !== null
+        ? [`Free Shipping on Orders ${formatPrice(settings.freeShippingThreshold)}+`]
+        : []),
+      "New Drops Weekly",
+      "Student Discount 15%",
+    ],
+    [settings.freeShippingThreshold, formatPrice],
+  );
   const [index, setIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     const timer = setInterval(() => setIndex((i) => (i + 1) % announcements.length), 4000);
     return () => clearInterval(timer);
-  }, []);
+  }, [announcements.length]);
 
   if (!isVisible || scrollHide) return null;
 
@@ -27,7 +38,7 @@ export default function AnnouncementBar({ scrollHide = false }: { scrollHide?: b
       </button>
       <div className="flex items-center gap-2 text-sm font-medium tracking-wide">
         <span key={index} className="animate-fadeIn">
-          {announcements[index]}
+          {announcements[index % announcements.length]}
         </span>
       </div>
       <button

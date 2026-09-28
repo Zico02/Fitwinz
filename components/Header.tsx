@@ -7,14 +7,15 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, Heart, Lock, Menu, Minus, Plus, Search, ShoppingBag, User, X } from "lucide-react";
 import Logo from "@/components/Logo";
 import { useCart } from "@/components/CartContext";
-import { cartUpsellProductId, categoryAnchor, getProduct, products } from "@/lib/catalog";
-import { formatPrice } from "@/lib/format";
+import { useStore } from "@/components/StoreContext";
+import { cartUpsellProductId } from "@/lib/catalog";
+import { amountToFreeShipping, shippingFor } from "@/lib/pricing";
 
 const navLinks = [
-  { name: "Women", href: "#section-trending-now" },
-  { name: "Men", href: "#section-men-durable" },
-  { name: "Accessories", href: "#accessories" },
-  { name: "Our Philosophy", href: "#philosophy" },
+  { name: "Women", href: "/#section-trending-now" },
+  { name: "Men", href: "/#section-men-durable" },
+  { name: "Accessories", href: "/#accessories" },
+  { name: "Our Philosophy", href: "/#philosophy" },
 ];
 
 const megaMenuContent: Record<string, { title: string; links: string[] }[]> = {
@@ -46,26 +47,41 @@ const megaMenuContent: Record<string, { title: string; links: string[] }[]> = {
 
 const popularSearches = ["Tanks", "Leggings", "Shorts", "Hoodies", "Accessories"];
 
-const SHIPPING_ESTIMATE = 15;
-
 export default function Header({ scrollY }: { scrollY: number }) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [discountCode, setDiscountCode] = useState("");
   const router = useRouter();
-  const { cartLines, cartCount, cartTotal, updateQuantity, removeFromCart, wishlistIds, addToCart } = useCart();
+  const {
+    cartLines,
+    cartCount,
+    cartTotal,
+    updateQuantity,
+    removeFromCart,
+    wishlistIds,
+    addToCart,
+    isCartOpen,
+    openCart,
+    closeCart,
+  } = useCart();
+  const { products, settings, getProduct, formatPrice } = useStore();
 
   const isScrolled = scrollY > 50;
+  const shipping = shippingFor(cartTotal, settings);
+  const missingForFreeShipping = amountToFreeShipping(cartTotal, settings);
   const upsell = getProduct(cartUpsellProductId);
+  const upsellSize = upsell?.sizes.find((s) => (upsell.stock[s] ?? 0) > 0);
+  const upsellInBag = cartLines.some((l) => l.productId === cartUpsellProductId);
+  // Only relevant while there is still an amount to reach for free delivery.
+  const showUpsell = Boolean(upsell && upsellSize && missingForFreeShipping !== null && !upsellInBag);
 
   const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
     return products.filter((p) => [p.name, p.fit, p.color].join(" ").toLowerCase().includes(q));
-  }, [searchQuery]);
+  }, [searchQuery, products]);
 
   useEffect(() => {
     document.body.style.overflow = isMobileMenuOpen || isCartOpen ? "hidden" : "";
@@ -77,16 +93,16 @@ export default function Header({ scrollY }: { scrollY: number }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setIsCartOpen(false);
+        closeCart();
         setIsSearchOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [closeCart]);
 
   const handleCheckout = () => {
-    setIsCartOpen(false);
+    closeCart();
     router.push("/checkout");
   };
 
@@ -153,7 +169,7 @@ export default function Header({ scrollY }: { scrollY: number }) {
               isScrolled ? "scale-90" : "scale-100"
             }`}
           >
-            <Logo priority className="h-16 w-auto object-contain bg-transparent" />
+            <Logo eager className="h-16 w-auto object-contain bg-transparent" />
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-4">
@@ -195,7 +211,7 @@ export default function Header({ scrollY }: { scrollY: number }) {
             <button
               className="p-2 hover:bg-gray-100 rounded-full transition-colors relative"
               aria-label="Cart"
-              onClick={() => setIsCartOpen(true)}
+              onClick={openCart}
             >
               <ShoppingBag className="w-5 h-5" />
               {cartCount > 0 && (
@@ -256,7 +272,7 @@ export default function Header({ scrollY }: { scrollY: number }) {
                     {searchResults.map((p) => (
                       <li key={p.id}>
                         <Link
-                          href={categoryAnchor[p.category]}
+                          href={`/products/${p.id}`}
                           onClick={() => setIsSearchOpen(false)}
                           className="block rounded-xl border border-gray-100 p-3 hover:bg-gray-50"
                         >
@@ -275,7 +291,7 @@ export default function Header({ scrollY }: { scrollY: number }) {
       {/* Cart drawer */}
       {isCartOpen && (
         <>
-          <div className="fixed inset-0 bg-black/50 z-[60] animate-fadeIn" onClick={() => setIsCartOpen(false)} />
+          <div className="fixed inset-0 bg-black/50 z-[60] animate-fadeIn" onClick={closeCart} />
           <div className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white z-[70] animate-slideInRight overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h2 className="text-lg font-bold">YOUR BAG</h2>
@@ -284,7 +300,7 @@ export default function Header({ scrollY }: { scrollY: number }) {
                   <Heart className="w-5 h-5" />
                 </Link>
                 <button
-                  onClick={() => setIsCartOpen(false)}
+                  onClick={closeCart}
                   className="p-2 hover:bg-gray-100 rounded-full"
                   aria-label="Close bag"
                 >
@@ -307,7 +323,7 @@ export default function Header({ scrollY }: { scrollY: number }) {
                   <h3 className="text-lg font-semibold mb-2">Your bag is empty</h3>
                   <p className="text-gray-500 mb-6">Add some items to get started!</p>
                   <button
-                    onClick={() => setIsCartOpen(false)}
+                    onClick={closeCart}
                     className="bg-black text-white px-8 py-3 rounded-full font-semibold hover:bg-gray-800 transition-colors"
                   >
                     CONTINUE SHOPPING
@@ -323,7 +339,7 @@ export default function Header({ scrollY }: { scrollY: number }) {
                   </div>
 
                   <div className="p-4 space-y-4">
-                    {cartLines.map(({ product, size, quantity }) => (
+                    {cartLines.map(({ product, size, quantity, available }) => (
                       <div key={`${product.id}-${size}`} className="flex gap-4">
                         <div className="relative w-20 h-24 bg-gray-100 rounded overflow-hidden flex-shrink-0">
                           <Image src={product.image} alt={product.name} fill sizes="80px" className="object-cover" />
@@ -358,7 +374,8 @@ export default function Header({ scrollY }: { scrollY: number }) {
                               <span className="px-2 text-sm">{quantity}</span>
                               <button
                                 onClick={() => updateQuantity(product.id, size, quantity + 1)}
-                                className="px-2 py-1 hover:bg-gray-100"
+                                disabled={quantity >= available}
+                                className="px-2 py-1 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
                                 aria-label="Increase quantity"
                               >
                                 <Plus className="w-3 h-3" />
@@ -366,15 +383,22 @@ export default function Header({ scrollY }: { scrollY: number }) {
                             </div>
                             <span className="font-semibold">{formatPrice(product.price * quantity)}</span>
                           </div>
+                          {quantity > available && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {available === 0 ? "Sold out in this size" : `Only ${available} left in this size`}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {upsell && (
+                  {showUpsell && upsell && upsellSize && missingForFreeShipping !== null && (
                     <div className="px-4 py-4 border-t border-gray-100">
                       <h3 className="font-semibold text-sm mb-2">ADD A LITTLE EXTRA</h3>
-                      <p className="text-sm text-gray-500 mb-4">Add one or more of these items to get free delivery</p>
+                      <p className="text-sm text-gray-500 mb-4">
+                        Add {formatPrice(missingForFreeShipping)} more for free delivery
+                      </p>
                       <div className="flex gap-4 overflow-x-auto pb-2">
                         <div className="flex-shrink-0 w-32">
                           <div className="relative aspect-square bg-gray-100 rounded mb-2 overflow-hidden">
@@ -384,7 +408,7 @@ export default function Header({ scrollY }: { scrollY: number }) {
                           <p className="text-xs text-gray-500">{upsell.name}</p>
                           <p className="text-sm font-semibold">{formatPrice(upsell.price)}</p>
                           <button
-                            onClick={() => addToCart(upsell.id, upsell.sizes[0])}
+                            onClick={() => addToCart(upsell.id, upsellSize)}
                             className="mt-2 w-full py-1 border border-black text-sm font-semibold rounded hover:bg-black hover:text-white transition-colors"
                           >
                             + ADD
@@ -404,7 +428,14 @@ export default function Header({ scrollY }: { scrollY: number }) {
                         onChange={(e) => setDiscountCode(e.target.value)}
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black"
                       />
-                      <button className="px-6 py-2 bg-black text-white rounded-full text-sm font-semibold hover:bg-gray-800 transition-colors">
+                      <button
+                        onClick={() => {
+                          const code = discountCode.trim();
+                          closeCart();
+                          router.push(code ? `/checkout?code=${encodeURIComponent(code)}` : "/checkout");
+                        }}
+                        className="px-6 py-2 bg-black text-white rounded-full text-sm font-semibold hover:bg-gray-800 transition-colors"
+                      >
                         APPLY
                       </button>
                     </div>
@@ -419,12 +450,12 @@ export default function Header({ scrollY }: { scrollY: number }) {
                         <span>{formatPrice(cartTotal)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Estimated Shipping</span>
-                        <span className="text-gray-400">{formatPrice(SHIPPING_ESTIMATE)}</span>
+                        <span className="text-gray-600">Shipping</span>
+                        <span className="text-gray-400">{shipping === 0 ? "Free" : formatPrice(shipping)}</span>
                       </div>
                       <div className="flex justify-between font-semibold pt-2 border-t border-gray-100">
                         <span>Total</span>
-                        <span>{formatPrice(cartTotal + SHIPPING_ESTIMATE)}</span>
+                        <span>{formatPrice(cartTotal + shipping)}</span>
                       </div>
                     </div>
                   </div>
@@ -441,13 +472,7 @@ export default function Header({ scrollY }: { scrollY: number }) {
                   <Lock className="w-4 h-4" />
                   CHECKOUT SECURELY
                 </button>
-                <div className="flex items-center justify-center gap-2 mt-3">
-                  <span className="text-xs bg-blue-900 text-white px-2 py-1 rounded">VISA</span>
-                  <span className="text-xs bg-red-600 text-white px-2 py-1 rounded">MC</span>
-                  <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">AMEX</span>
-                  <span className="text-xs bg-blue-800 text-white px-2 py-1 rounded">PayPal</span>
-                  <span className="text-xs bg-black text-white px-2 py-1 rounded">Apple Pay</span>
-                </div>
+                <p className="text-xs text-gray-500 text-center mt-3">Cash on delivery: pay when your order arrives.</p>
               </div>
             )}
           </div>

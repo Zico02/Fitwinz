@@ -72,6 +72,12 @@ body {
 
 .group:hover .group-hover\:scale-108 { transform: scale(1.08); }
 
+/* Controls that replace hover interactions on touch screens (e.g. quick-add "+"). */
+.touch-only { display: none; }
+@media (hover: none) {
+  .touch-only { display: flex; }
+}
+
 *:focus-visible {
   outline: 2px solid #000;
   outline-offset: 2px;

@@ -6,7 +6,7 @@ export default function SimplePageHeader({ className = "bg-white border-gray-100
   return (
     <header className={`h-16 flex items-center justify-center border-b ${className}`}>
       <Link href="/">
-        <Logo priority className="h-16 w-auto object-contain bg-transparent" />
+        <Logo eager className="h-16 w-auto object-contain bg-transparent" />
       </Link>
     </header>
   );
