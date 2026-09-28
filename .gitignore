@@ -1,4 +1,34 @@
+# Dependencies
 node_modules
+
+# Next.js build output
+.next
+out
+next-env.d.ts
+*.tsbuildinfo
+
+# Old Vite output (no longer used)
 dist
+
+# Environment: secrets never go in git
 .env
+.env*.local
+.env.*
+!.env.example
+
+# Supabase local state
+supabase/.temp
+supabase/.branches
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
 .vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel
