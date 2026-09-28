@@ -27,8 +27,8 @@ Without `.env.local` the store still runs in **preview mode**: it shows the cata
 
 ## Backend setup (once)
 
-1. **Create the database schema.** In Supabase → SQL Editor → New query, paste the whole
-   content of `supabase/migrations/20260928120000_init_store.sql` and run it.
+1. **Create the database schema.** In Supabase → SQL Editor → New query, paste and run each file
+   in `supabase/migrations/`, oldest first.
    (Or with the Supabase CLI: `npx supabase link --project-ref <ref>` then `npx supabase db push`.)
 2. **Fill `.env.local`** (see `.env.example` for where each value comes from).
 3. **Seed the catalog:** `npm run db:seed` (products from `lib/catalog.ts`, 10 units per size).
@@ -48,8 +48,13 @@ Without `.env.local` the store still runs in **preview mode**: it shows the cata
 - **Orders** are created by the `place_order()` database function, called server-side with the
   secret key. It re-checks prices and stock against the database, applies the discount and
   shipping rule, decrements stock and writes the order in one transaction.
-- **Emails** (Resend): confirmation to the customer (if they gave an email) and a notification to
-  `ORDER_NOTIFICATION_EMAIL`, sent after the order is saved. An email failure never loses an order.
+- **Emails** (Resend, `lib/emails/`): order confirmation (customer), "on its way" (customer, sent
+  once when an order is set to Shipped) and a new-order notification (`ORDER_NOTIFICATION_EMAIL`).
+  Table-based HTML with inline styles plus a plain-text version. Each send is recorded in
+  `order_emails` (at most once per kind per order); failures show as "email not sent" in the admin
+  with a Retry button, and never block or lose an order. Logo files live in `public/email/`;
+  product photos are served to mail clients as JPEG by `/email/product.jpg`.
+  Preview them with `npm run email:previews` (writes `email-previews/`, gitignored).
 - **Admin** (`/admin`): orders and status changes (cancelled/returned puts stock back once),
   products, sizes/stock, photos (Supabase Storage), discount codes, settings.
 - **Security**: Row Level Security on every table. Visitors can only read the public catalog;
@@ -65,6 +70,7 @@ Without `.env.local` the store still runs in **preview mode**: it shows the cata
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript only |
 | `npm run images:optimize -- <folder> [files...]` | Convert JPG/PNG photos to WebP in `public/images` |
+| `npm run email:previews` | Render the three order emails to `email-previews/` (open `index.html`) |
 | `npm run test:db` | Run the database tests (schema, RLS, orders, stock) in an in-memory Postgres |
 | `npm run db:seed` | Seed Supabase from `lib/catalog.ts` |
 | `npm run admin:create -- email` | Create an admin, or reset an admin's password (hidden prompt) |

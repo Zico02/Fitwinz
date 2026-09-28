@@ -3,7 +3,7 @@
 import { after } from "next/server";
 import { updateTag } from "next/cache";
 import { checkoutSchema, type CheckoutFieldErrors, type CheckoutInput } from "@/lib/checkout-schema";
-import { sendNewOrderNotification, sendOrderConfirmation, type OrderEmailData } from "@/lib/email";
+import { sendOrderEmail } from "@/lib/emails/send";
 import { formatPrice } from "@/lib/pricing";
 import { CATALOG_TAG, getStorefront } from "@/lib/store";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -108,14 +108,12 @@ export async function placeOrder(input: CheckoutInput & { company?: string }): P
   // Stock changed: refresh the cached catalog for everyone.
   updateTag(CATALOG_TAG);
 
+  // Emails go out after the response; failures are logged on the order, never lost.
   after(async () => {
-    try {
-      const emailData = await loadOrderEmailData(placed.order_id);
-      if (!emailData) return;
-      await Promise.allSettled([sendOrderConfirmation(emailData), sendNewOrderNotification(emailData, placed.order_id)]);
-    } catch (e) {
-      console.error("[checkout] sending order emails failed", e);
-    }
+    await Promise.allSettled([
+      sendOrderEmail(placed.order_id, "confirmation"),
+      sendOrderEmail(placed.order_id, "admin_notification"),
+    ]);
   });
 
   return { ok: true, token: placed.public_token };
@@ -161,39 +159,4 @@ async function mapOrderError(error: DbError, items: CheckoutInput["items"]): Pro
 
   console.error("[checkout] place_order failed", error, { lines: items.length });
   return { ok: false, message: "We couldn't place your order. Please try again in a moment." };
-}
-
-async function loadOrderEmailData(orderId: string): Promise<OrderEmailData | null> {
-  const supabase = createServiceClient();
-  const [{ data: order }, { data: items }, { settings }] = await Promise.all([
-    supabase.from("orders").select("*").eq("id", orderId).single(),
-    supabase.from("order_items").select("*").eq("order_id", orderId),
-    getStorefront(),
-  ]);
-  if (!order) return null;
-  return {
-    orderNumber: order.order_number,
-    publicToken: order.public_token,
-    createdAt: order.created_at,
-    fullName: order.full_name,
-    phone: order.phone,
-    email: order.email,
-    city: order.city,
-    addressLine: order.address_line,
-    notes: order.notes,
-    currencyPrefix: settings.currencyPrefix,
-    subtotal: Number(order.subtotal),
-    discountCode: order.discount_code,
-    discountAmount: Number(order.discount_amount),
-    shippingFee: Number(order.shipping_fee),
-    total: Number(order.total),
-    items: (items ?? []).map((i) => ({
-      name: i.product_name,
-      color: i.color,
-      size: i.size,
-      quantity: i.quantity,
-      unitPrice: Number(i.unit_price),
-      lineTotal: Number(i.line_total),
-    })),
-  };
 }

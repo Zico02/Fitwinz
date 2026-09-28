@@ -2,13 +2,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ActionForm, { SubmitButton } from "@/components/admin/ActionForm";
-import { saveShipment, updateOrderStatus } from "@/app/admin/actions";
+import { retryOrderEmail, updateOrder } from "@/app/admin/actions";
 import { requireAdmin } from "@/lib/admin/auth";
 import { dateTime, ORDER_STATUSES, STATUS_STYLES, type OrderStatus } from "@/lib/admin/labels";
 import { formatPrice } from "@/lib/pricing";
 import { getStorefront } from "@/lib/store";
 
 export const metadata = { title: "Order" };
+
+const EMAIL_KINDS = [
+  { kind: "confirmation", label: "Order confirmation (customer)", pending: "Not sent" },
+  { kind: "admin_notification", label: "New order notification (you)", pending: "Not sent" },
+  { kind: "shipped", label: "On its way (customer)", pending: "Sent when shipped" },
+] as const;
+
+type EmailLog = { kind: string; status: string; recipient: string | null; error: string | null; updated_at: string };
 
 const input = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black";
 
@@ -17,13 +25,21 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
 
-  const [{ data: order }, { settings }] = await Promise.all([
+  const [{ data: order }, { settings }, { data: emailLogs }] = await Promise.all([
     supabase.from("orders").select("*, order_items(*), shipments(*)").eq("id", id).maybeSingle(),
     getStorefront(),
+    supabase
+      .from("order_emails")
+      .select("kind, status, recipient, error, updated_at")
+      .eq("order_id", id)
+      .order("created_at", { ascending: false }),
   ]);
   if (!order) notFound();
 
   const money = (n: number | string) => formatPrice(Number(n), settings);
+  // Newest attempt per email kind (a retry after a failure adds a new row).
+  const latestEmail = new Map<string, EmailLog>();
+  for (const log of (emailLogs ?? []) as EmailLog[]) if (!latestEmail.has(log.kind)) latestEmail.set(log.kind, log);
   const shipment = Array.isArray(order.shipments) ? order.shipments[0] : order.shipments;
   const status = order.status as OrderStatus;
   const whatsapp = `https://wa.me/${order.phone.replace("+", "")}`;
@@ -131,37 +147,72 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </div>
 
           <div className="bg-white rounded-lg p-6">
-            <h2 className="font-semibold mb-3">Status</h2>
-            <ActionForm action={updateOrderStatus} className="space-y-3">
+            <h2 className="font-semibold mb-3">Status &amp; shipping</h2>
+            <ActionForm action={updateOrder} className="space-y-3">
               <input type="hidden" name="orderId" value={order.id} />
-              <select name="status" defaultValue={status} className={input} disabled={order.restocked}>
+              <select name="status" defaultValue={status} className={input} disabled={order.restocked} aria-label="Status">
                 {ORDER_STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
                 ))}
               </select>
+              <input name="carrier" defaultValue={shipment?.carrier ?? ""} placeholder="Carrier (e.g. Amana, CTM)" className={input} />
+              <input name="tracking" defaultValue={shipment?.tracking_number ?? ""} placeholder="Tracking number" className={input} />
+              <input
+                name="trackingUrl"
+                type="url"
+                defaultValue={shipment?.tracking_url ?? ""}
+                placeholder="Tracking link (optional, https://…)"
+                className={input}
+              />
+              {shipment?.shipped_at && <p className="text-xs text-gray-500">Shipped {dateTime(shipment.shipped_at)}</p>}
+              {shipment?.delivered_at && <p className="text-xs text-gray-500">Delivered {dateTime(shipment.delivered_at)}</p>}
               {order.restocked ? (
                 <p className="text-sm text-gray-500">This order is closed; its items were put back in stock.</p>
               ) : (
-                <>
-                  <p className="text-xs text-gray-500">Cancelled or returned puts the items back in stock.</p>
-                  <SubmitButton>Update status</SubmitButton>
-                </>
+                <p className="text-xs text-gray-500">
+                  Setting <strong>shipped</strong> emails the customer once, with the carrier and tracking above. Cancelled or
+                  returned puts the items back in stock.
+                </p>
               )}
+              <SubmitButton>Save</SubmitButton>
             </ActionForm>
           </div>
 
           <div className="bg-white rounded-lg p-6">
-            <h2 className="font-semibold mb-3">Shipment</h2>
-            <ActionForm action={saveShipment} className="space-y-3">
-              <input type="hidden" name="orderId" value={order.id} />
-              <input name="carrier" defaultValue={shipment?.carrier ?? ""} placeholder="Carrier (e.g. Amana, CTM)" className={input} />
-              <input name="tracking" defaultValue={shipment?.tracking_number ?? ""} placeholder="Tracking number" className={input} />
-              {shipment?.shipped_at && <p className="text-xs text-gray-500">Shipped {dateTime(shipment.shipped_at)}</p>}
-              {shipment?.delivered_at && <p className="text-xs text-gray-500">Delivered {dateTime(shipment.delivered_at)}</p>}
-              <SubmitButton>Save shipment</SubmitButton>
-            </ActionForm>
+            <h2 className="font-semibold mb-3">Emails</h2>
+            <ul className="space-y-3 text-sm">
+              {EMAIL_KINDS.map(({ kind, label, pending }) => {
+                const last = latestEmail.get(kind);
+                return (
+                  <li key={kind}>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-medium">{label}</span>
+                      {last?.status === "sent" && <span className="text-green-700">Sent</span>}
+                      {last?.status === "sending" && <span className="text-gray-500">Sending…</span>}
+                      {last?.status === "skipped" && <span className="text-gray-500">Not needed</span>}
+                      {last?.status === "failed" && <span className="text-red-600 font-semibold">Email not sent</span>}
+                      {!last && <span className="text-gray-400">{pending}</span>}
+                    </div>
+                    {last && (
+                      <p className="text-xs text-gray-500">
+                        {last.recipient ? `${last.recipient} · ` : ""}
+                        {dateTime(last.updated_at)}
+                        {last.status !== "sent" && last.error ? ` · ${last.error}` : ""}
+                      </p>
+                    )}
+                    {last?.status === "failed" && (
+                      <form action={retryOrderEmail} className="mt-1">
+                        <input type="hidden" name="orderId" value={order.id} />
+                        <input type="hidden" name="kind" value={kind} />
+                        <button className="text-xs underline">Retry sending</button>
+                      </form>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
       </div>

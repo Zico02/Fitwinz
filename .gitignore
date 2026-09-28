@@ -32,3 +32,6 @@ Thumbs.db
 
 # Vercel
 .vercel
+
+# Local email previews (npm run email:previews)
+email-previews/

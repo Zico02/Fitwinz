@@ -23,6 +23,23 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   if (activeStatus) query = query.eq("status", activeStatus);
   const { data: orders, count, error } = await query;
 
+  // Orders whose latest attempt for some email failed get an "email not sent" note.
+  const emailFailed = new Set<string>();
+  if (orders?.length) {
+    const { data: logs } = await supabase
+      .from("order_emails")
+      .select("order_id, kind, status")
+      .in("order_id", orders.map((o) => o.id))
+      .order("created_at", { ascending: false });
+    const seen = new Set<string>();
+    for (const log of logs ?? []) {
+      const key = `${log.order_id}:${log.kind}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (log.status === "failed") emailFailed.add(log.order_id);
+    }
+  }
+
   const tab = (value: OrderStatus | null, label: string) => (
     <Link
       key={label}
@@ -76,6 +93,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_STYLES[o.status as OrderStatus]}`}>
                     {o.status}
                   </span>
+                  {emailFailed.has(o.id) && <span className="block mt-1 text-xs text-red-600">email not sent</span>}
                 </td>
               </tr>
             ))}

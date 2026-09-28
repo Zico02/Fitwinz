@@ -234,6 +234,28 @@ await test("status changes: admin only, cancel restocks exactly once, closed ord
   assert.equal(shipment.shipped, true);
 });
 
+await test("order emails: each kind sent at most once per order, failures can be retried", async () => {
+  const claim = (kind, status = "sending") =>
+    db.query("insert into public.order_emails (order_id, kind, status) values ($1, $2, $3)", [firstOrder.order_id, kind, status]);
+  await claim("shipped");
+  await expectError(claim("shipped"), "duplicate key");
+  await db.query("update public.order_emails set status = 'failed' where order_id = $1 and kind = 'shipped'", [firstOrder.order_id]);
+  await claim("shipped"); // retry after a failure is allowed
+  await db.query("update public.order_emails set status = 'sent' where order_id = $1 and kind = 'shipped' and status = 'sending'", [firstOrder.order_id]);
+  await expectError(claim("shipped"), "duplicate key");
+  await claim("confirmation"); // other kinds are independent
+  await as("anon", null, async () => assert.equal((await db.query("select * from public.order_emails")).rows.length, 0));
+  await as("authenticated", USER, async () => assert.equal((await db.query("select * from public.order_emails")).rows.length, 0));
+  await as("authenticated", ADMIN, async () => assert.ok((await db.query("select * from public.order_emails")).rows.length >= 3));
+});
+
+await test("shipment tracking link must be http(s)", async () => {
+  await expectError(
+    db.query("update public.shipments set tracking_url = 'javascript:alert(1)' where order_id = $1", [firstOrder.order_id]),
+    "check constraint",
+  );
+});
+
 await test("stock can never go negative", async () => {
   await expectError(db.query("update public.product_variants set stock = -1 where sku = 'OFIB-M'"), "check constraint");
 });
