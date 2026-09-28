@@ -1,4 +1,0 @@
-{
-  "buildCommand": "echo \"Using existing dist\"",
-  "outputDirectory": "dist"
-}
