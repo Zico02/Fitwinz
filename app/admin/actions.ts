@@ -6,6 +6,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin, type ActionState } from "@/lib/admin/auth";
+import { sendOrderEmail } from "@/lib/emails/send";
 import { CATALOG_TAG } from "@/lib/store";
 import { createSessionClient } from "@/lib/supabase/server";
 
@@ -67,42 +68,76 @@ export async function signOut() {
 // ---------------------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------------------
-export async function updateOrderStatus(_prev: ActionState, formData: FormData): Promise<ActionState> {
+/**
+ * Saves the shipment details, then the status. Carrier/tracking are saved first so the
+ * "on its way" email (sent automatically when the status becomes Shipped) includes them.
+ */
+export async function updateOrder(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { supabase } = await requireAdmin();
   const orderId = z.uuid().safeParse(formData.get("orderId"));
   const status = z.enum(ORDER_STATUSES).safeParse(formData.get("status"));
-  if (!orderId.success || !status.success) return fail("Invalid status.");
-
-  const { error } = await supabase.rpc("set_order_status", { p_order_id: orderId.data, p_status: status.data });
-  if (error) {
-    if (error.message.includes("ORDER_CLOSED")) {
-      return fail("This order was cancelled or returned and its stock was put back. It can't be reopened; create a new order instead.");
-    }
-    return fail(`Could not update the status: ${error.message}`);
-  }
-  if (status.data === "cancelled" || status.data === "returned") updateTag(CATALOG_TAG);
-  revalidatePath("/admin/orders");
-  revalidatePath(`/admin/orders/${orderId.data}`);
-  return done(
-    status.data === "cancelled" || status.data === "returned"
-      ? `Status set to ${status.data}. The items were put back in stock.`
-      : `Status set to ${status.data}.`,
-  );
-}
-
-export async function saveShipment(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { supabase } = await requireAdmin();
-  const orderId = z.uuid().safeParse(formData.get("orderId"));
   if (!orderId.success) return fail("Invalid order.");
+
   const carrier = String(formData.get("carrier") ?? "").trim().slice(0, 80) || null;
   const tracking = String(formData.get("tracking") ?? "").trim().slice(0, 120) || null;
+  const trackingUrl = String(formData.get("trackingUrl") ?? "").trim().slice(0, 500) || null;
+  if (trackingUrl && !/^https?:\/\/\S+$/.test(trackingUrl)) return fail("The tracking link must start with https://");
 
-  const { error } = await supabase
-    .from("shipments")
-    .upsert({ order_id: orderId.data, carrier, tracking_number: tracking }, { onConflict: "order_id" });
-  if (error) return fail(`Could not save: ${error.message}`);
+  const { data: existing } = await supabase.from("shipments").select("id").eq("order_id", orderId.data).maybeSingle();
+  if (existing || carrier || tracking || trackingUrl) {
+    const { error } = await supabase
+      .from("shipments")
+      .upsert(
+        { order_id: orderId.data, carrier, tracking_number: tracking, tracking_url: trackingUrl },
+        { onConflict: "order_id" },
+      );
+    if (error) return fail(`Could not save the shipment details: ${error.message}`);
+  }
+
+  const messages = ["Saved."];
+  if (status.success) {
+    const { data: before } = await supabase.from("orders").select("status").eq("id", orderId.data).single();
+    if (before && before.status !== status.data) {
+      const { error } = await supabase.rpc("set_order_status", { p_order_id: orderId.data, p_status: status.data });
+      if (error) {
+        if (error.message.includes("ORDER_CLOSED")) {
+          return fail("This order was cancelled or returned and its stock was put back. It can't be reopened; create a new order instead.");
+        }
+        return fail(`Could not update the status: ${error.message}`);
+      }
+      messages.push(`Status set to ${status.data}.`);
+      if (status.data === "cancelled" || status.data === "returned") {
+        updateTag(CATALOG_TAG);
+        messages.push("The items were put back in stock.");
+      }
+      if (status.data === "shipped") {
+        // Sent at most once per order (enforced in the database); never blocks this save.
+        const result = await sendOrderEmail(orderId.data, "shipped");
+        messages.push(
+          result === "sent"
+            ? "The customer was emailed that the order is on its way."
+            : result === "already-sent"
+              ? "The \"on its way\" email was already sent earlier."
+              : result === "skipped"
+                ? "No shipping email: the customer gave no email address."
+                : "The shipping email could not be sent (see Emails below).",
+        );
+      }
+    }
+  }
+
+  revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId.data}`);
-  return done("Shipment details saved.");
+  return done(messages.join(" "));
+}
+
+export async function retryOrderEmail(formData: FormData) {
+  await requireAdmin();
+  const orderId = z.uuid().parse(formData.get("orderId"));
+  const kind = z.enum(["confirmation", "admin_notification", "shipped"]).parse(formData.get("kind"));
+  await sendOrderEmail(orderId, kind);
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${orderId}`);
 }
 
 // ---------------------------------------------------------------------------

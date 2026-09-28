@@ -12,7 +12,8 @@
     "images:optimize": "node scripts/optimize-images.mjs",
     "test:db": "node supabase/tests/db.test.mjs",
     "db:seed": "node --env-file=.env.local scripts/seed.mts",
-    "admin:create": "node --env-file=.env.local scripts/create-admin.mts"
+    "admin:create": "node --env-file=.env.local scripts/create-admin.mts",
+    "email:previews": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/email-previews.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
