@@ -24,7 +24,7 @@ export type PlaceOrderResult =
 type DbError = { message: string; hint?: string | null };
 
 function backendReady() {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SECRET_KEY);
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() && process.env.SUPABASE_SECRET_KEY?.trim());
 }
 
 async function describeDiscountError(error: DbError) {

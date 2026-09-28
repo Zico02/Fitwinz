@@ -23,7 +23,7 @@ const STATUS_TEXT: Record<string, string> = {
 
 export default async function OrderPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  if (!UUID.test(token) || !process.env.SUPABASE_SECRET_KEY) notFound();
+  if (!UUID.test(token) || !process.env.SUPABASE_SECRET_KEY?.trim()) notFound();
 
   const supabase = createServiceClient();
   const { data: order } = await supabase

@@ -33,7 +33,8 @@ Without `.env.local` the store still runs in **preview mode**: it shows the cata
 2. **Fill `.env.local`** (see `.env.example` for where each value comes from).
 3. **Seed the catalog:** `npm run db:seed` (products from `lib/catalog.ts`, 10 units per size).
    Safe to re-run: it never overwrites existing products, prices or stock.
-4. **Create your admin account:** `npm run admin:create -- you@example.com "a-long-password"`
+4. **Create your admin account:** `npm run admin:create -- you@example.com` (asks for the password, hidden, twice).
+   Run the same command again to reset a forgotten password.
 5. Restart `npm run dev`.
 
 ### How it works
@@ -66,7 +67,7 @@ Without `.env.local` the store still runs in **preview mode**: it shows the cata
 | `npm run images:optimize -- <folder> [files...]` | Convert JPG/PNG photos to WebP in `public/images` |
 | `npm run test:db` | Run the database tests (schema, RLS, orders, stock) in an in-memory Postgres |
 | `npm run db:seed` | Seed Supabase from `lib/catalog.ts` |
-| `npm run admin:create -- email "password"` | Create or promote an admin account |
+| `npm run admin:create -- email` | Create an admin, or reset an admin's password (hidden prompt) |
 
 ## Project layout
 

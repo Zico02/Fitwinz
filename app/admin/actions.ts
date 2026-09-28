@@ -25,14 +25,30 @@ const done = (message: string): ActionState => ({ ok: true, message });
 // Session
 // ---------------------------------------------------------------------------
 export async function signIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "/admin");
   if (!email || !password) return fail("Enter your email and password.");
 
   const supabase = await createSessionClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return fail("Incorrect email or password.");
+  if (error) {
+    // Log the reason (never the password) so real problems aren't hidden behind a generic message.
+    console.warn(`[admin] sign-in failed for ${email}: ${error.code ?? error.status} ${error.message}`);
+    switch (error.code) {
+      case "invalid_credentials":
+        return fail("Incorrect email or password.");
+      case "email_not_confirmed":
+        return fail("This email address is not confirmed yet. Run npm run admin:create to confirm it.");
+      case "over_request_rate_limit":
+      case "over_email_send_rate_limit":
+        return fail("Too many attempts. Wait a minute and try again.");
+      case "user_banned":
+        return fail("This account is blocked.");
+      default:
+        return fail(`Sign-in failed: ${error.message}`);
+    }
+  }
 
   const { data: isAdmin } = await supabase.rpc("is_admin");
   if (!isAdmin) {
