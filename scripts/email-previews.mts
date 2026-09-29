@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   renderAdminNotification,
+  renderAuthEmail,
   renderOrderCancelled,
   renderOrderConfirmation,
   renderOrderShipped,
@@ -50,12 +51,36 @@ const sample: OrderEmailData = {
 const outDir = path.join(process.cwd(), "email-previews");
 fs.mkdirSync(outDir, { recursive: true });
 
+// Supabase auth emails: previews get a sample link instead of the {{ ... }} placeholders.
+const sampleAuthLink = (html: string) =>
+  html
+    .replaceAll("{{ .RedirectTo }}", `${urls.admin}/auth/confirm`)
+    .replaceAll("{{ .TokenHash }}", "pkce_sample_token_hash")
+    .replaceAll("{{ .Email }}", "yasmine@example.com");
+const authPreview = (kind: "confirm-signup" | "reset-password") => {
+  const e = renderAuthEmail(kind, urls);
+  return { subject: e.subject, html: sampleAuthLink(e.html), text: sampleAuthLink(e.text) };
+};
+
 const emails = [
   ["1-order-confirmation", renderOrderConfirmation(sample, urls)],
   ["2-order-shipped", renderOrderShipped(sample, urls)],
   ["3-new-order-notification", renderAdminNotification(sample, urls)],
   ["4-order-cancelled", renderOrderCancelled(sample, urls)],
+  ["5-auth-confirm-signup", authPreview("confirm-signup")],
+  ["6-auth-reset-password", authPreview("reset-password")],
 ] as const;
+
+// Paste-ready Supabase templates (committed). Images always come from the live site.
+const templatesDir = path.join(process.cwd(), "supabase", "email-templates");
+fs.mkdirSync(templatesDir, { recursive: true });
+for (const kind of ["confirm-signup", "reset-password"] as const) {
+  const e = renderAuthEmail(kind, { site: "https://fitwinz.ma", admin: "https://fitwinz.ma" });
+  fs.writeFileSync(path.join(templatesDir, `${kind}.html`), e.html);
+  fs.writeFileSync(path.join(templatesDir, `${kind}.txt`), `Subject: ${e.subject}
+
+${e.text}`);
+}
 
 const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 for (const [name, email] of emails) {
@@ -83,4 +108,5 @@ ${emails
 );
 
 console.log(`Wrote ${emails.length} emails (HTML + text) to ${outDir}`);
+console.log(`Wrote Supabase auth templates to ${templatesDir}`);
 console.log(`Open: ${path.join(outDir, "index.html")}`);

@@ -1,0 +1,19 @@
+Subject: Confirm your Fitwinz account
+
+Welcome to Fitwinz!
+
+Thanks for creating your account. Please confirm your email address to activate it:
+{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email
+
+This link can only be used once and expires after 24 hours.
+
+With your account you can track your orders, save your addresses and keep your favorites in your wishlist.
+
+Questions? Reply to this email or message us on Instagram @fitwinz_store (https://www.instagram.com/fitwinz_store/).
+
+--
+Fitwinz, Morocco
+Instagram @fitwinz_store: https://www.instagram.com/fitwinz_store/
+https://fitwinz.ma
+
+You received this email because this address was used to create a Fitwinz account. If it wasn't you, you can ignore it.

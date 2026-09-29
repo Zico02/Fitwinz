@@ -488,3 +488,74 @@ ${textFooter(urls, footerNote)}
 `,
   };
 }
+
+// ---------------------------------------------------------------------------
+// 4. Supabase Auth emails (pasted into Supabase > Authentication > Email Templates)
+// Links use Supabase's Go-template placeholders. {{ .RedirectTo }} is the /auth/confirm URL of the
+// site the customer used (fitwinz.ma, a preview or localhost), passed by the signup/reset forms.
+// ---------------------------------------------------------------------------
+export type AuthEmailKind = "confirm-signup" | "reset-password";
+
+export function renderAuthEmail(kind: AuthEmailKind, urls: EmailUrls): RenderedEmail {
+  const confirm = kind === "confirm-signup";
+  const link = `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=${confirm ? "email" : "recovery"}`;
+  const footerNote = confirm
+    ? "You received this email because this address was used to create a Fitwinz account. If it wasn't you, you can ignore it."
+    : "You received this email because a password reset was requested for your Fitwinz account. If it wasn't you, you can ignore it: your password stays the same.";
+
+  const body = confirm
+    ? [
+        heading("Welcome to Fitwinz!"),
+        paragraph("Thanks for creating your account. Please confirm your email address to activate it."),
+        button("Confirm my email", link),
+        paragraph(`<span style="color:${MUTED};font-size:13px;">This link can only be used once and expires after 24 hours.</span>`),
+        paragraph("With your account you can track your orders, save your addresses and keep your favorites in your wishlist."),
+        contactLine("Questions? Reply to this email"),
+      ]
+    : [
+        heading("Reset your password"),
+        paragraph("We received a request to reset the password of your Fitwinz account ({{ .Email }})."),
+        button("Choose a new password", link),
+        paragraph(`<span style="color:${MUTED};font-size:13px;">This link can only be used once and expires after 1 hour. If you didn't ask for this, no action is needed.</span>`),
+        contactLine("Questions? Reply to this email"),
+      ];
+
+  const text = confirm
+    ? `Welcome to Fitwinz!
+
+Thanks for creating your account. Please confirm your email address to activate it:
+${link}
+
+This link can only be used once and expires after 24 hours.
+
+With your account you can track your orders, save your addresses and keep your favorites in your wishlist.
+
+Questions? Reply to this email or message us on Instagram ${INSTAGRAM_HANDLE} (${INSTAGRAM_URL}).
+
+${textFooter(urls, footerNote)}
+`
+    : `Reset your password
+
+We received a request to reset the password of your Fitwinz account ({{ .Email }}).
+
+Choose a new password:
+${link}
+
+This link can only be used once and expires after 1 hour. If you didn't ask for this, no action is needed.
+
+Questions? Reply to this email or message us on Instagram ${INSTAGRAM_HANDLE} (${INSTAGRAM_URL}).
+
+${textFooter(urls, footerNote)}
+`;
+
+  return {
+    subject: confirm ? "Confirm your Fitwinz account" : "Reset your Fitwinz password",
+    html: layout(urls, {
+      title: confirm ? "Confirm your Fitwinz account" : "Reset your Fitwinz password",
+      preheader: confirm ? "One click to activate your Fitwinz account." : "Choose a new password for your Fitwinz account.",
+      body: body.join("\n"),
+      footerNote,
+    }),
+    text,
+  };
+}

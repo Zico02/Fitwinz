@@ -5,6 +5,14 @@ import { createServerClient } from "@supabase/ssr";
 // to the right login page. Being signed in is not enough for /admin: the admin role is checked again
 // on every admin page and Server Action (requireAdmin), so customer accounts can never get in.
 export async function proxy(request: NextRequest) {
+  // Auth email link that fell back to the Site URL (e.g. sent from the Supabase dashboard):
+  // forward it to the handler that verifies the token.
+  if (request.nextUrl.pathname === "/" && request.nextUrl.searchParams.has("token_hash")) {
+    const confirm = new URL("/auth/confirm", request.url);
+    confirm.search = request.nextUrl.search;
+    return NextResponse.redirect(confirm);
+  }
+
   let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -42,5 +50,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/account/:path*", "/checkout", "/reset-password"],
+  matcher: [
+    "/admin/:path*",
+    "/account/:path*",
+    "/checkout",
+    "/reset-password",
+    { source: "/", has: [{ type: "query", key: "token_hash" }] },
+  ],
 };
