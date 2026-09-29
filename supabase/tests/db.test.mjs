@@ -15,7 +15,7 @@ const SUPABASE_STUBS = `
   create role authenticated nologin;
   create role service_role nologin bypassrls;
   create schema auth;
-  create table auth.users (id uuid primary key, email text);
+  create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb not null default '{}');
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create schema storage;
@@ -266,6 +266,74 @@ await test("cancelled email: new kind, sent at most once, reason limited to 500 
     db.query("update public.orders set cancellation_reason = $2 where id = $1", [firstOrder.order_id, "x".repeat(501)]),
     "check constraint",
   );
+});
+
+const CUST_A = "00000000-0000-0000-0000-0000000000c1";
+const CUST_B = "00000000-0000-0000-0000-0000000000c2";
+
+await test("accounts: signup creates a profile with names; newsletter only when ticked", async () => {
+  await db.query(
+    `insert into auth.users (id, email, raw_user_meta_data) values
+      ($1, 'A@Example.com', '{"first_name":"Amine","last_name":"Test","newsletter":true}'),
+      ($2, 'b@example.com', '{"first_name":"Sara","last_name":"B","newsletter":false}')`,
+    [CUST_A, CUST_B],
+  );
+  const { rows } = await db.query("select id, first_name, last_name from public.profiles where id in ($1, $2) order by first_name", [CUST_A, CUST_B]);
+  assert.deepEqual(rows.map((r) => r.first_name), ["Amine", "Sara"]);
+  const subs = (await db.query("select email, source from public.newsletter_subscribers where source = 'signup'")).rows;
+  assert.deepEqual(subs, [{ email: "a@example.com", source: "signup" }]);
+});
+
+await test("accounts: a customer only sees their own profile, addresses, wishlist and orders", async () => {
+  await as("authenticated", CUST_A, async () => {
+    await db.query("insert into public.saved_addresses (user_id, full_name, phone, city, address_line, is_default) values ($1, 'Amine Test', '+212612345678', 'Rabat', '1 Avenue Test', true)", [CUST_A]);
+    await db.query("insert into public.wishlist_items (user_id, product_slug) values ($1, 'pro-shaker-black')", [CUST_A]);
+    await expectError(
+      db.query("insert into public.saved_addresses (user_id, full_name, phone, city, address_line) values ($1, 'X Y', '+212612345678', 'Rabat', '1 Avenue Test')", [CUST_B]),
+      "row-level security",
+    );
+    await expectError(db.query("insert into public.wishlist_items (user_id, product_slug) values ($1, 'x')", [CUST_B]), "row-level security");
+  });
+  await db.query("update public.orders set user_id = $1 where id = $2", [CUST_A, firstOrder.order_id]);
+
+  await as("authenticated", CUST_B, async () => {
+    for (const t of ["saved_addresses", "wishlist_items", "orders", "order_items", "customers", "order_emails", "admin_users"]) {
+      assert.equal((await db.query(`select * from public.${t}`)).rows.length, 0, t);
+    }
+    assert.deepEqual((await db.query("select id from public.profiles")).rows.map((r) => r.id), [CUST_B]);
+    const upd = await db.query("update public.profiles set first_name = 'Hacked' where id = $1", [CUST_A]);
+    assert.equal(upd.affectedRows, 0);
+    const del = await db.query("delete from public.saved_addresses");
+    assert.equal(del.affectedRows, 0);
+  });
+
+  await as("authenticated", CUST_A, async () => {
+    assert.equal((await db.query("select * from public.orders")).rows.length, 1);
+    assert.ok((await db.query("select * from public.order_items")).rows.length >= 1);
+    assert.equal((await db.query("select * from public.saved_addresses")).rows.length, 1);
+    // Customers can read their orders but never change them.
+    const upd = await db.query("update public.orders set total = 0 where id = $1", [firstOrder.order_id]);
+    assert.equal(upd.affectedRows, 0);
+    await expectError(db.query("select public.set_order_status($1, 'confirmed')", [firstOrder.order_id]), "NOT_AUTHORIZED");
+    assert.equal((await db.query("select public.is_admin() as a")).rows[0].a, false);
+  });
+});
+
+await test("accounts: only one default address per customer; phone must be Moroccan", async () => {
+  await as("authenticated", CUST_A, async () => {
+    await expectError(
+      db.query("insert into public.saved_addresses (user_id, full_name, phone, city, address_line, is_default) values ($1, 'Amine Test', '+212612345678', 'Fès', '2 Rue Test', true)", [CUST_A]),
+      "duplicate key",
+    );
+    await expectError(db.query("update public.profiles set phone = '0612345678' where id = $1", [CUST_A]), "check constraint");
+  });
+});
+
+await test("rate limiter: allows up to the limit, then blocks; server only", async () => {
+  const hit = () => db.query("select public.rate_limit_allow('admin-login:test', 3, 900) as ok").then((r) => r.rows[0].ok);
+  assert.deepEqual([await hit(), await hit(), await hit(), await hit()], [true, true, true, false]);
+  await as("anon", null, () => expectError(db.query("select public.rate_limit_allow('x', 1, 60)"), "permission denied"));
+  await as("authenticated", CUST_A, () => expectError(db.query("select public.rate_limit_allow('x', 1, 60)"), "permission denied"));
 });
 
 await test("stock can never go negative", async () => {
