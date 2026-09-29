@@ -100,7 +100,7 @@ export default function Footer() {
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
             <p className="text-sm text-gray-400">Cash on delivery across Morocco</p>
             <div className="text-sm text-gray-400 text-center space-y-1">
-              <p>© 2026 Fitwinz | Founded by AHAJI Zakariae |</p>
+              <p>© 2026 Fitwinz</p>
               <p>| All Rights Reserved | Time to Dress Healthy |</p>
             </div>
             <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-400">
