@@ -508,7 +508,7 @@ export function renderAuthEmail(kind: AuthEmailKind, urls: EmailUrls): RenderedE
         heading("Welcome to Fitwinz!"),
         paragraph("Thanks for creating your account. Please confirm your email address to activate it."),
         button("Confirm my email", link),
-        paragraph(`<span style="color:${MUTED};font-size:13px;">This link can only be used once and expires after 24 hours.</span>`),
+        paragraph(`<span style="color:${MUTED};font-size:13px;">This link can only be used once and expires after 1 hour.</span>`),
         paragraph("With your account you can track your orders, save your addresses and keep your favorites in your wishlist."),
         contactLine("Questions? Reply to this email"),
       ]
@@ -526,7 +526,7 @@ export function renderAuthEmail(kind: AuthEmailKind, urls: EmailUrls): RenderedE
 Thanks for creating your account. Please confirm your email address to activate it:
 ${link}
 
-This link can only be used once and expires after 24 hours.
+This link can only be used once and expires after 1 hour.
 
 With your account you can track your orders, save your addresses and keep your favorites in your wishlist.
 
