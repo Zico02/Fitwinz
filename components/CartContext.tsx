@@ -1,7 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/components/AuthContext";
 import { useStore } from "@/components/StoreContext";
+import { getBrowserSupabase } from "@/lib/supabase/browser";
 import type { StoreProduct } from "@/lib/store-types";
 
 export interface CartItem {
@@ -59,6 +61,8 @@ function writeStorage(key: string, value: unknown) {
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { getProduct } = useStore();
+  const { user, ready: authReady } = useAuth();
+  const syncedUserId = useRef<string | null>(null);
   const [items, setItems] = useState<CartItem[]>([]);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -82,6 +86,42 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (hydrated) writeStorage(WISHLIST_KEY, wishlistIds);
   }, [wishlistIds, hydrated]);
+
+  // Account wishlist: on sign-in, merge the browser wishlist into the account (and vice versa);
+  // on sign-out, clear the browser copy so the next person on this device doesn't see it.
+  useEffect(() => {
+    if (!hydrated || !authReady) return;
+    const supabase = getBrowserSupabase();
+    if (!supabase) return;
+
+    if (!user) {
+      if (syncedUserId.current) {
+        syncedUserId.current = null;
+        setWishlistIds([]);
+      }
+      return;
+    }
+    if (syncedUserId.current === user.id) return;
+    syncedUserId.current = user.id;
+
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from("wishlist_items").select("product_slug");
+      if (error || cancelled) return;
+      const remote = data.map((r) => r.product_slug as string);
+      const local = readStorage<string[]>(WISHLIST_KEY, []);
+      const missingRemotely = local.filter((id) => !remote.includes(id));
+      if (missingRemotely.length) {
+        await supabase
+          .from("wishlist_items")
+          .upsert(missingRemotely.map((product_slug) => ({ user_id: user.id, product_slug })), { ignoreDuplicates: true });
+      }
+      if (!cancelled) setWishlistIds([...new Set([...remote, ...local])]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authReady, hydrated]);
 
   const limitFor = useCallback(
     (productId: string, size: string) => Math.min(MAX_QUANTITY, getProduct(productId)?.stock[size] ?? 0),
@@ -125,9 +165,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => setItems([]), []);
 
-  const toggleWishlist = useCallback((productId: string) => {
-    setWishlistIds((prev) => (prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]));
-  }, []);
+  const toggleWishlist = useCallback(
+    (productId: string) => {
+      const removing = wishlistIds.includes(productId);
+      setWishlistIds((prev) => (removing ? prev.filter((id) => id !== productId) : [...prev, productId]));
+      const supabase = getBrowserSupabase();
+      if (user && supabase) {
+        const request = removing
+          ? supabase.from("wishlist_items").delete().eq("user_id", user.id).eq("product_slug", productId)
+          : supabase.from("wishlist_items").upsert({ user_id: user.id, product_slug: productId }, { ignoreDuplicates: true });
+        request.then(({ error }) => error && console.warn("[wishlist] could not save to account:", error.message));
+      }
+    },
+    [wishlistIds, user],
+  );
 
   const isInWishlist = useCallback((productId: string) => wishlistIds.includes(productId), [wishlistIds]);
   const openCart = useCallback(() => setIsCartOpen(true), []);

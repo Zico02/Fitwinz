@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import SimplePageHeader from "@/components/SimplePageHeader";
+import { CUSTOMER_STATUS_TEXT } from "@/lib/order-status";
 import { formatPrice } from "@/lib/pricing";
 import { getStorefront } from "@/lib/store";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -11,15 +12,6 @@ import { createServiceClient } from "@/lib/supabase/service";
 export const metadata: Metadata = { title: "Order confirmed", robots: { index: false } };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const STATUS_TEXT: Record<string, string> = {
-  pending: "Received: we will call you to confirm",
-  confirmed: "Confirmed: being prepared",
-  shipped: "Shipped: on its way",
-  delivered: "Delivered",
-  returned: "Returned",
-  cancelled: "Cancelled",
-};
 
 export default async function OrderPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -64,7 +56,7 @@ export default async function OrderPage({ params }: { params: Promise<{ token: s
         <div className="bg-white p-6 rounded-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold">ORDER SUMMARY</h2>
-            <span className="text-sm text-gray-500">{STATUS_TEXT[order.status] ?? order.status}</span>
+            <span className="text-sm text-gray-500">{CUSTOMER_STATUS_TEXT[order.status] ?? order.status}</span>
           </div>
           <div className="space-y-4 mb-6">
             {items.map((item) => (

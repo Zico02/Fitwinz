@@ -3,12 +3,14 @@
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { revalidatePath, updateTag } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin, type ActionState } from "@/lib/admin/auth";
 import { sendOrderEmail } from "@/lib/emails/send";
 import { CATALOG_TAG } from "@/lib/store";
 import { createSessionClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 const ORDER_STATUSES = ["pending", "confirmed", "shipped", "delivered", "returned", "cancelled"] as const;
 const BUCKET = "product-images";
@@ -30,6 +32,11 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "/admin");
   if (!email || !password) return fail("Enter your email and password.");
+
+  // Rate limit: 10 attempts per IP and 5 per email every 15 minutes.
+  if (!(await allowAdminLoginAttempt(email))) {
+    return fail("Too many sign-in attempts. Please wait 15 minutes and try again.");
+  }
 
   const supabase = await createSessionClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -57,6 +64,26 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
     return fail("This account does not have admin access.");
   }
   redirect(next.startsWith("/admin") && !next.startsWith("/admin/login") ? next : "/admin");
+}
+
+async function allowAdminLoginAttempt(email: string): Promise<boolean> {
+  try {
+    const h = await headers();
+    const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || "unknown";
+    const service = createServiceClient();
+    const check = async (bucket: string, max: number) => {
+      const { data, error } = await service.rpc("rate_limit_allow", { p_bucket: bucket, p_max: max, p_window_seconds: 900 });
+      if (error) {
+        console.warn(`[admin] rate limiter unavailable: ${error.message}`);
+        return true; // fail open if the migration isn't applied yet; Supabase Auth still has its own limits
+      }
+      return data === true;
+    };
+    const [ipOk, emailOk] = await Promise.all([check(`admin-login:ip:${ip}`, 10), check(`admin-login:email:${email}`, 5)]);
+    return ipOk && emailOk;
+  } catch {
+    return true;
+  }
 }
 
 export async function signOut() {
