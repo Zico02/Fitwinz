@@ -2,6 +2,7 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   renderAdminNotification,
+  renderOrderCancelled,
   renderOrderConfirmation,
   renderOrderShipped,
   type EmailUrls,
@@ -9,7 +10,7 @@ import {
   type RenderedEmail,
 } from "@/lib/emails/templates";
 
-export type OrderEmailKind = "confirmation" | "admin_notification" | "shipped";
+export type OrderEmailKind = "confirmation" | "admin_notification" | "shipped" | "cancelled";
 
 type SendResult = { ok: true; id: string | null } | { ok: false; error: string };
 
@@ -98,6 +99,7 @@ async function loadOrder(orderId: string): Promise<OrderEmailData | null> {
     carrier: shipment?.carrier ?? null,
     trackingNumber: shipment?.tracking_number ?? null,
     trackingUrl: shipment?.tracking_url ?? null,
+    cancellationReason: order.cancellation_reason ?? null,
   };
 }
 
@@ -155,7 +157,9 @@ export async function sendOrderEmail(orderId: string, kind: OrderEmailKind): Pro
         ? renderOrderConfirmation(order, urls)
         : kind === "shipped"
           ? renderOrderShipped(order, urls)
-          : renderAdminNotification(order, urls);
+          : kind === "cancelled"
+            ? renderOrderCancelled(order, urls)
+            : renderAdminNotification(order, urls);
 
     const result = await sendViaResend(to, rendered, order.orderNumber);
     return result.ok

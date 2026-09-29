@@ -35,6 +35,7 @@ export interface OrderEmailData {
   carrier?: string | null;
   trackingNumber?: string | null;
   trackingUrl?: string | null;
+  cancellationReason?: string | null;
 }
 
 export interface EmailUrls {
@@ -210,9 +211,9 @@ ${paragraph(`${esc(order.fullName)}<br>${esc(order.addressLine)}<br>${esc(order.
 ${order.notes ? paragraph(`<span style="color:${MUTED};">Notes: ${esc(order.notes)}</span>`, "margin-top:8px;") : ""}`;
 }
 
-function contactLine() {
+function contactLine(lead = "Questions? Just reply to this email") {
   return paragraph(
-    `Questions? Just reply to this email or message us on Instagram <a href="${INSTAGRAM_URL}" style="color:${INK};text-decoration:underline;">${INSTAGRAM_HANDLE}</a>.`,
+    `${lead} or message us on Instagram <a href="${INSTAGRAM_URL}" style="color:${INK};text-decoration:underline;">${INSTAGRAM_HANDLE}</a>.`,
     "margin-top:24px;",
   );
 }
@@ -368,6 +369,62 @@ ${textFooter(urls, footerNote)}
 }
 
 // ---------------------------------------------------------------------------
+// 2b. "Your order has been cancelled" (optional, chosen by the admin)
+// ---------------------------------------------------------------------------
+export function renderOrderCancelled(order: OrderEmailData, urls: EmailUrls): RenderedEmail {
+  const name = firstName(order.fullName);
+  const date = formatOrderDate(order.createdAt);
+  const reason = order.cancellationReason?.trim() || null;
+  const footerNote = "You received this email because you placed an order at fitwinz.ma.";
+
+  const body = [
+    heading(`Your order has been cancelled`),
+    paragraph(`<span style="color:${MUTED};">Order <strong style="color:${INK};">${esc(order.orderNumber)}</strong> &middot; ${esc(date)}</span>`),
+    paragraph(
+      `Hello ${esc(name)}, your order <strong>${esc(order.orderNumber)}</strong> has been cancelled. It will not be delivered and you have nothing to pay.`,
+    ),
+    reason
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 8px 0;background-color:#f5f5f5;">
+  <tr><td style="padding:16px 20px;font-family:${FONT};font-size:15px;line-height:22px;color:${INK};">
+    <span style="font-size:13px;color:${MUTED};">Reason</span><br>${esc(reason)}
+  </td></tr>
+</table>`
+      : "",
+    sectionTitle("Cancelled items"),
+    itemsTable(order, urls, false),
+    paragraph("We hope to see you again soon.", "margin-top:24px;"),
+    contactLine("Questions? Reply to this email"),
+  ].join("\n");
+
+  return {
+    subject: `Your Fitwinz order ${order.orderNumber} has been cancelled`,
+    html: layout(urls, {
+      title: `Order ${order.orderNumber} cancelled`,
+      preheader: `Your order ${order.orderNumber} has been cancelled. You have nothing to pay.`,
+      body,
+      footerNote,
+    }),
+    text: `Your order has been cancelled
+
+Order ${order.orderNumber} - ${date}
+
+Hello ${name}, your order ${order.orderNumber} has been cancelled. It will not be delivered and you have nothing to pay.
+${reason ? `
+Reason: ${reason}
+` : ""}
+CANCELLED ITEMS
+${textItems(order)}
+
+We hope to see you again soon.
+
+Questions? Reply to this email or message us on Instagram ${INSTAGRAM_HANDLE} (${INSTAGRAM_URL}).
+
+${textFooter(urls, footerNote)}
+`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // 3. New-order notification for the shop owner
 // ---------------------------------------------------------------------------
 export function renderAdminNotification(order: OrderEmailData, urls: EmailUrls): RenderedEmail {
@@ -429,5 +486,76 @@ Open in admin: ${adminLink}
 
 ${textFooter(urls, footerNote)}
 `,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 4. Supabase Auth emails (pasted into Supabase > Authentication > Email Templates)
+// Links use Supabase's Go-template placeholders. {{ .RedirectTo }} is the /auth/confirm URL of the
+// site the customer used (fitwinz.ma, a preview or localhost), passed by the signup/reset forms.
+// ---------------------------------------------------------------------------
+export type AuthEmailKind = "confirm-signup" | "reset-password";
+
+export function renderAuthEmail(kind: AuthEmailKind, urls: EmailUrls): RenderedEmail {
+  const confirm = kind === "confirm-signup";
+  const link = `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=${confirm ? "email" : "recovery"}`;
+  const footerNote = confirm
+    ? "You received this email because this address was used to create a Fitwinz account. If it wasn't you, you can ignore it."
+    : "You received this email because a password reset was requested for your Fitwinz account. If it wasn't you, you can ignore it: your password stays the same.";
+
+  const body = confirm
+    ? [
+        heading("Welcome to Fitwinz!"),
+        paragraph("Thanks for creating your account. Please confirm your email address to activate it."),
+        button("Confirm my email", link),
+        paragraph(`<span style="color:${MUTED};font-size:13px;">This link can only be used once and expires after 1 hour.</span>`),
+        paragraph("With your account you can track your orders, save your addresses and keep your favorites in your wishlist."),
+        contactLine("Questions? Reply to this email"),
+      ]
+    : [
+        heading("Reset your password"),
+        paragraph("We received a request to reset the password of your Fitwinz account ({{ .Email }})."),
+        button("Choose a new password", link),
+        paragraph(`<span style="color:${MUTED};font-size:13px;">This link can only be used once and expires after 1 hour. If you didn't ask for this, no action is needed.</span>`),
+        contactLine("Questions? Reply to this email"),
+      ];
+
+  const text = confirm
+    ? `Welcome to Fitwinz!
+
+Thanks for creating your account. Please confirm your email address to activate it:
+${link}
+
+This link can only be used once and expires after 1 hour.
+
+With your account you can track your orders, save your addresses and keep your favorites in your wishlist.
+
+Questions? Reply to this email or message us on Instagram ${INSTAGRAM_HANDLE} (${INSTAGRAM_URL}).
+
+${textFooter(urls, footerNote)}
+`
+    : `Reset your password
+
+We received a request to reset the password of your Fitwinz account ({{ .Email }}).
+
+Choose a new password:
+${link}
+
+This link can only be used once and expires after 1 hour. If you didn't ask for this, no action is needed.
+
+Questions? Reply to this email or message us on Instagram ${INSTAGRAM_HANDLE} (${INSTAGRAM_URL}).
+
+${textFooter(urls, footerNote)}
+`;
+
+  return {
+    subject: confirm ? "Confirm your Fitwinz account" : "Reset your Fitwinz password",
+    html: layout(urls, {
+      title: confirm ? "Confirm your Fitwinz account" : "Reset your Fitwinz password",
+      preheader: confirm ? "One click to activate your Fitwinz account." : "Choose a new password for your Fitwinz account.",
+      body: body.join("\n"),
+      footerNote,
+    }),
+    text,
   };
 }

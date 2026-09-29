@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Sign up", robots: { index: false } }
 
 export default function SignupPage() {
   return (
-    <AuthShell title="FITWINZ SIGNUP" subtitle="One account across all apps, just to make things a little easier.">
+    <AuthShell title="FITWINZ SIGNUP" subtitle="Create your account to track your orders and save your favorites.">
       <SignupForm />
     </AuthShell>
   );

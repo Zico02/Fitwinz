@@ -1,9 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-// Runs for /admin only: refreshes the Supabase session cookie and sends signed-out visitors
-// to the login page. The admin role itself is checked again on every admin page and action.
+// Runs for /admin and /account: refreshes the Supabase session cookie and sends signed-out visitors
+// to the right login page. Being signed in is not enough for /admin: the admin role is checked again
+// on every admin page and Server Action (requireAdmin), so customer accounts can never get in.
 export async function proxy(request: NextRequest) {
+  // Auth email link that fell back to the Site URL (e.g. sent from the Supabase dashboard):
+  // forward it to the handler that verifies the token.
+  if (request.nextUrl.pathname === "/" && request.nextUrl.searchParams.has("token_hash")) {
+    const confirm = new URL("/auth/confirm", request.url);
+    confirm.search = request.nextUrl.search;
+    return NextResponse.redirect(confirm);
+  }
+
   let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -26,15 +35,26 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isLoginPage = request.nextUrl.pathname === "/admin/login";
-  if (!user && !isLoginPage) {
+  const path = request.nextUrl.pathname;
+  if (!user && path.startsWith("/admin") && path !== "/admin/login") {
     const login = new URL("/admin/login", request.url);
-    login.searchParams.set("next", request.nextUrl.pathname);
+    login.searchParams.set("next", path);
+    return NextResponse.redirect(login);
+  }
+  if (!user && path.startsWith("/account")) {
+    const login = new URL("/login", request.url);
+    login.searchParams.set("next", path);
     return NextResponse.redirect(login);
   }
   return response;
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/account/:path*",
+    "/checkout",
+    "/reset-password",
+    { source: "/", has: [{ type: "query", key: "token_hash" }] },
+  ],
 };

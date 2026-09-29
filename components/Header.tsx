@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Heart, Lock, Menu, Minus, Plus, Search, ShoppingBag, User, X } from "lucide-react";
 import Logo from "@/components/Logo";
+import { useAuth } from "@/components/AuthContext";
 import { useCart } from "@/components/CartContext";
 import { useStore } from "@/components/StoreContext";
 import { cartUpsellProductId } from "@/lib/catalog";
@@ -67,6 +68,8 @@ export default function Header({ scrollY }: { scrollY: number }) {
     closeCart,
   } = useCart();
   const { products, settings, getProduct, formatPrice } = useStore();
+  const { user } = useAuth();
+  const accountHref = user ? "/account" : "/login";
 
   const isScrolled = scrollY > 50;
   const shipping = shippingFor(cartTotal, settings);
@@ -202,9 +205,9 @@ export default function Header({ scrollY }: { scrollY: number }) {
               )}
             </Link>
             <Link
-              href="/login"
+              href={accountHref}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors hidden sm:block"
-              aria-label="Account"
+              aria-label={user ? "My account" : "Log in"}
             >
               <User className="w-5 h-5" />
             </Link>
@@ -505,9 +508,9 @@ export default function Header({ scrollY }: { scrollY: number }) {
                 ))}
               </nav>
               <div className="mt-8 pt-8 border-t border-gray-100">
-                <Link href="/login" className="flex items-center gap-3 py-3 text-lg" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href={accountHref} className="flex items-center gap-3 py-3 text-lg" onClick={() => setIsMobileMenuOpen(false)}>
                   <User className="w-5 h-5" />
-                  Log In
+                  {user ? "My Account" : "Log In"}
                 </Link>
                 <Link href="/wishlist" className="flex items-center gap-3 py-3 text-lg" onClick={() => setIsMobileMenuOpen(false)}>
                   <Heart className="w-5 h-5" />

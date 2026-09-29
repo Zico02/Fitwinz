@@ -6,6 +6,8 @@ import { checkoutSchema, type CheckoutFieldErrors, type CheckoutInput } from "@/
 import { sendOrderEmail } from "@/lib/emails/send";
 import { formatPrice } from "@/lib/pricing";
 import { CATALOG_TAG, getStorefront } from "@/lib/store";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createSessionClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export type PlaceOrderResult =
@@ -108,6 +110,10 @@ export async function placeOrder(input: CheckoutInput & { company?: string }): P
   // Stock changed: refresh the cached catalog for everyone.
   updateTag(CATALOG_TAG);
 
+  // Logged-in customer: link the order to the account (identity from the verified session cookie,
+  // never from the request body). Guest checkout skips this entirely.
+  await linkOrderToAccount(placed.order_id, data);
+
   // Emails go out after the response; failures are logged on the order, never lost.
   after(async () => {
     await Promise.allSettled([
@@ -159,4 +165,38 @@ async function mapOrderError(error: DbError, items: CheckoutInput["items"]): Pro
 
   console.error("[checkout] place_order failed", error, { lines: items.length });
   return { ok: false, message: "We couldn't place your order. Please try again in a moment." };
+}
+
+async function linkOrderToAccount(
+  orderId: string,
+  data: { fullName: string; phone: string; city: string; address: string },
+) {
+  if (!isSupabaseConfigured) return;
+  try {
+    const session = await createSessionClient();
+    const {
+      data: { user },
+    } = await session.auth.getUser();
+    if (!user) return;
+
+    const { error } = await createServiceClient().from("orders").update({ user_id: user.id }).eq("id", orderId);
+    if (error) return console.warn(`[checkout] could not link order ${orderId} to account: ${error.message}`);
+
+    // First order from this account: remember the address and phone for next time.
+    const { count } = await session.from("saved_addresses").select("id", { count: "exact", head: true });
+    if (!count) {
+      await session.from("saved_addresses").insert({
+        user_id: user.id,
+        full_name: data.fullName,
+        phone: data.phone,
+        city: data.city,
+        address_line: data.address,
+        is_default: true,
+      });
+    }
+    await session.from("profiles").update({ phone: data.phone }).eq("id", user.id).is("phone", null);
+  } catch (e) {
+    // Never fail a placed order because of account bookkeeping.
+    console.warn("[checkout] account linking failed", e);
+  }
 }

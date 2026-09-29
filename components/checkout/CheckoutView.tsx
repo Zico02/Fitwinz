@@ -6,12 +6,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import SimplePageHeader from "@/components/SimplePageHeader";
+import { useAuth } from "@/components/AuthContext";
 import { useCart } from "@/components/CartContext";
 import { useStore } from "@/components/StoreContext";
 import { placeOrder, previewDiscount, type AppliedDiscount } from "@/app/checkout/actions";
 import type { CheckoutFieldErrors } from "@/lib/checkout-schema";
 import { MOROCCAN_CITIES, OTHER_CITY } from "@/lib/morocco";
 import { discountAmount as computeDiscount, roundMoney, shippingFor } from "@/lib/pricing";
+import { getBrowserSupabase } from "@/lib/supabase/browser";
 
 const inputClass =
   "w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black";
@@ -25,6 +27,7 @@ export default function CheckoutView({ initialCode = "" }: { initialCode?: strin
   const router = useRouter();
   const { cartLines, cartTotal, updateQuantity, clearCart } = useCart();
   const { settings, formatPrice } = useStore();
+  const { user } = useAuth();
 
   const [form, setForm] = useState({ fullName: "", phone: "", email: "", city: "", otherCity: "", address: "", notes: "" });
   const [newsletter, setNewsletter] = useState(false);
@@ -39,6 +42,30 @@ export default function CheckoutView({ initialCode = "" }: { initialCode?: strin
   const [discountError, setDiscountError] = useState("");
   const [isApplying, startApplying] = useTransition();
   const autoApplied = useRef(false);
+
+  // Logged in: prefill empty fields from the profile and the default saved address.
+  const prefilledFor = useRef<string | null>(null);
+  useEffect(() => {
+    const supabase = getBrowserSupabase();
+    if (!user || !supabase || prefilledFor.current === user.id) return;
+    prefilledFor.current = user.id;
+    (async () => {
+      const [{ data: profile }, { data: address }] = await Promise.all([
+        supabase.from("profiles").select("first_name, last_name, phone").eq("id", user.id).maybeSingle(),
+        supabase.from("saved_addresses").select("full_name, phone, city, address_line").eq("is_default", true).maybeSingle(),
+      ]);
+      const knownCity = address?.city && (MOROCCAN_CITIES as readonly string[]).includes(address.city);
+      setForm((f) => ({
+        fullName: f.fullName || address?.full_name || `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim(),
+        phone: f.phone || address?.phone || profile?.phone || "",
+        email: f.email || user.email || "",
+        city: f.city || (address?.city ? (knownCity ? address.city : OTHER_CITY) : ""),
+        otherCity: f.otherCity || (address?.city && !knownCity ? address.city : ""),
+        address: f.address || address?.address_line || "",
+        notes: f.notes,
+      }));
+    })();
+  }, [user]);
 
   const items = cartLines.map((l) => ({ slug: l.productId, size: l.size, quantity: l.quantity }));
   const discountAmount = computeDiscount(cartTotal, discount);
@@ -152,6 +179,11 @@ export default function CheckoutView({ initialCode = "" }: { initialCode?: strin
           <form className="space-y-6" onSubmit={handleSubmit} noValidate>
             <div className="bg-white p-6 rounded-lg">
               <h2 className="font-semibold mb-4">CONTACT</h2>
+              {user && (
+                <p className="text-sm text-gray-600 mb-4">
+                  Logged in as <strong className="text-black">{user.email}</strong>. This order will be saved to your account.
+                </p>
+              )}
               <div className="space-y-4">
                 <div>
                   <input
